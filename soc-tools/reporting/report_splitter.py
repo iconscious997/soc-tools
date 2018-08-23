@@ -5,7 +5,7 @@ import os
 
 class ReportSplitter:
     def __init__(self, values, columns, file, output_folder=None, verbose=False):
-        self.values = values
+        self.values = self._values_to_lowecase(values)
         self.columns = columns
         self.file = file
         self.output_folder = output_folder
@@ -15,6 +15,7 @@ class ReportSplitter:
 
         if self.output_folder is None:
             self.output_folder = os.getcwd()
+
 
     def split(self):
 
@@ -39,8 +40,8 @@ class ReportSplitter:
                     # For each row checking columns that contain indexed data
                     for column in self.columns:
                         # If indexed value in the column, writing this line to appropriate file
-                        if row[column] in self.values:
-                            self.write_line_to_file(row[column], row)
+                        if row[column].lower() in self.values:
+                            self.write_line_to_file(row[column].lower(), row)
 
             self._close_files()
         except Exception as err:
@@ -88,6 +89,12 @@ class ReportSplitter:
                 self.opened_files.append(csvfile)
         except Exception as err:
             raise err
+
+    def _values_to_lowecase(self, list):
+        new_list = []
+        for value in list:
+            new_list.append(value.lower())
+        return new_list
 
     def _close_files(self):
         for file in self.opened_files:
