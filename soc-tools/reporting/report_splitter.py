@@ -4,18 +4,20 @@ import os
 
 
 class ReportSplitter:
-    def __init__(self, values, columns, file, output_folder=None, verbose=False):
-        self.values = self._values_to_lowecase(values)
+    def __init__(self, values, columns, file, output_folder=None, verbose=False, case_insensitive=True,
+                 contains_value=False):
+        self.values = values
         self.columns = columns
         self.file = file
         self.output_folder = output_folder
         self.file_mapping = {}
         self.opened_files = []
         self.verbose = verbose
+        self.case_insensitive = case_insensitive
+        self.contains_value = contains_value
 
         if self.output_folder is None:
             self.output_folder = os.getcwd()
-
 
     def split(self):
 
@@ -26,22 +28,41 @@ class ReportSplitter:
             print(self.columns)
             print("File that will be splitted: " + self.file)
             print("Output folder: " + self.output_folder)
+            print("Case insensitivity enabled: " + self.case_insensitive)
+            print("Value contained in indexed column: " + self.contains_value)
             print("Starting...")
+
         try:
-            self.file_exists(self.file)
-            self.folder_exists(self.output_folder)
+            self._file_exists(self.file)
+            self._folder_exists(self.output_folder)
+
+            if self.case_insensitive:
+                values = self._values_to_lowecase(self.values)
+            else:
+                values = self.values
 
             with open(self.file) as csvfile:
                 reader = csv.DictReader(csvfile)
                 self._verify_column_names(reader.fieldnames)
-                self.create_files(reader.fieldnames)
+                self._create_files(reader.fieldnames, values)
                 # Reading row by row
                 for row in reader:
                     # For each row checking columns that contain indexed data
                     for column in self.columns:
+                        if self.case_insensitive:
+                            column_value = row[column].lower()
+                        else:
+                            column_value = row[column]
+
                         # If indexed value in the column, writing this line to appropriate file
-                        if row[column].lower() in self.values:
-                            self.write_line_to_file(row[column].lower(), row)
+                        if self.contains_value:
+                            for v in values:
+                                if v in column_value:
+                                    self._write_line_to_file(v, row)
+
+                        else:
+                            if column_value in values:
+                                self._write_line_to_file(column_value, row)
 
             self._close_files()
         except Exception as err:
@@ -53,10 +74,10 @@ class ReportSplitter:
             for file in self.opened_files:
                 print(file.name)
 
-    def write_line_to_file(self, value, row):
+    def _write_line_to_file(self, value, row):
         self.file_mapping[value].writerow(row)
 
-    def folder_exists(self, folder):
+    def _folder_exists(self, folder):
         if not os.path.exists(folder):
             raise Exception("ERROR - folder " + folder + " doesn't exist!")
         if not os.path.isdir(folder):
@@ -64,7 +85,7 @@ class ReportSplitter:
         if not os.access(folder, os.W_OK):
             raise Exception("ERROR - folder " + folder + " is not writable!")
 
-    def file_exists(self, file):
+    def _file_exists(self, file):
         if not os.path.exists(file):
             raise Exception("ERROR - file " + file + " doesn't exist!")
         if not os.path.isfile(file):
@@ -75,12 +96,13 @@ class ReportSplitter:
     def _verify_column_names(self, fieldnames):
         for column in self.columns:
             if column not in fieldnames:
-                raise ("ERROR - Column " + column + " not found to be a in the CSV file. Maybe case sensitivity issue?")
+                raise Exception(
+                    "ERROR - Column " + column + " not found to be a in the CSV file. Maybe case sensitivity issue?")
 
-    def create_files(self, fieldnames):
+    def _create_files(self, fieldnames, values):
 
         try:
-            for value in self.values:
+            for value in values:
                 file_name = os.path.join(self.output_folder, value.replace(".", "_") + ".csv")
                 csvfile = open(file_name, 'w')
                 writer = csv.DictWriter(csvfile, fieldnames)
@@ -110,6 +132,8 @@ if __name__ == '__main__':
     parser.add_argument("file", help="File that should be splitted")
     parser.add_argument("-o", "--output_folder", help="Folder where the output should be placed")
     parser.add_argument("-p", "--verbose", help="Verbose mode", action='store_true')
+    parser.add_argument("-i", "--case_insensitive", help="Verbose mode", action='store_true')
+    parser.add_argument("-x", "--contains_value", help="Verbose mode", action='store_true')
     args = parser.parse_args()
 
     report_splitter = ReportSplitter(args.value_list.split(","), args.column_list.split(","), args.file,
