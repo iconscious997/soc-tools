@@ -10,8 +10,8 @@ class ReportSplitter:
         self.columns = columns
         self.file = file
         self.output_folder = output_folder
-        self.file_mapping = {}
-        self.opened_files = []
+        self._file_mapping = {}
+        self._opened_files = []
         self.verbose = verbose
         self.case_insensitive = case_insensitive
         self.contains_value = contains_value
@@ -71,11 +71,11 @@ class ReportSplitter:
         if self.verbose:
             print("Finished...")
             print("Following files were created:")
-            for file in self.opened_files:
+            for file in self._opened_files:
                 print(file.name)
 
     def _write_line_to_file(self, value, row):
-        self.file_mapping[value].writerow(row)
+        self._file_mapping[value].writerow(row)
 
     def _folder_exists(self, folder):
         if not os.path.exists(folder):
@@ -107,8 +107,8 @@ class ReportSplitter:
                 csvfile = open(file_name, 'w')
                 writer = csv.DictWriter(csvfile, fieldnames)
                 writer.writeheader()
-                self.file_mapping[value] = writer
-                self.opened_files.append(csvfile)
+                self._file_mapping[value] = writer
+                self._opened_files.append(csvfile)
         except Exception as err:
             raise err
 
@@ -119,7 +119,7 @@ class ReportSplitter:
         return new_list
 
     def _close_files(self):
-        for file in self.opened_files:
+        for file in self._opened_files:
             file.close()
 
 
@@ -132,8 +132,10 @@ if __name__ == '__main__':
     parser.add_argument("file", help="File that should be splitted")
     parser.add_argument("-o", "--output_folder", help="Folder where the output should be placed")
     parser.add_argument("-p", "--verbose", help="Verbose mode", action='store_true')
-    parser.add_argument("-i", "--case_insensitive", help="Verbose mode", action='store_true')
-    parser.add_argument("-x", "--contains_value", help="Verbose mode", action='store_true')
+    parser.add_argument("-i", "--case_insensitive", help="Allows to enable case insensitivity.", action='store_true')
+    parser.add_argument("-x", "--contains_value",
+                        help="If enabled, value needs to be only contained in the column. No need for the exact match.",
+                        action='store_true')
     args = parser.parse_args()
 
     report_splitter = ReportSplitter(args.value_list.split(","), args.column_list.split(","), args.file,
